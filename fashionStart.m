@@ -51,7 +51,10 @@ global trainData;
 %----------------------------------
 
 %The size (neurons) of the hidden layer
-hiddenSize = 8;
+hiddenSize = 16;
+
+global batchSize;
+batchSize = 100;
 
 %the size of the neural network (autogenerate later, hardcode for now)
 %------------------------
@@ -103,7 +106,7 @@ BeginTime = tic;
 
     
     %run the neural network with 200 iterations
-    runNetwork(200, 2, true, true, false);
+    runNetwork(400, 2, true, true, false);
     
     %run a test to see how well it learned
     correct = runNetwork(1, 2, false, false, true);
@@ -144,6 +147,7 @@ function c = runNetwork(t, k, l, g, r)
     %We need to get the sizes
     global numberOfInputs;
     global outputSize;
+    global batchSize;
     
     %init the times trained and cost to 0
     timesTrained = 0;
@@ -168,7 +172,7 @@ function c = runNetwork(t, k, l, g, r)
         numCorrect = 0;
  
         %for each of the inputs in the batch
-        for i = 1:(100)
+        for i = 1:(batchSize)
             %get the corresponding input
             inputVec = csvInput(:,i);
           
@@ -248,7 +252,7 @@ function c = runNetwork(t, k, l, g, r)
         
         
         %avarage the cost
-        avgCost = batchCost / numberOfInputs;
+        avgCost = batchCost / batchSize;
        
         %the cost is the sum of this batches costs
         cost = sum(avgCost);
@@ -275,7 +279,7 @@ function c = runNetwork(t, k, l, g, r)
     c = c / t;
     
     if r == true
-        c = (numCorrect / (t * numberOfInputs) * 100);
+        c = (numCorrect / (t * batchSize) * 100);
     end 
 end
 
