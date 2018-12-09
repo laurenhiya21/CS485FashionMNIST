@@ -11,6 +11,7 @@ global numberOfInputs;
 global trainData;
 
 
+
     %get the inputs and labels from MNIST
     trainData = csvread('train.csv',1,1);
    
@@ -96,7 +97,11 @@ xlabel("Iteration");
 %run the network
 %----------------------------------
 
+%A variable that represents total runtime of code
+BeginTime = tic;
 
+
+    
     %run the neural network with 200 iterations
     runNetwork(200, 2, true, true, false);
     
@@ -108,7 +113,10 @@ xlabel("Iteration");
     %show the output
     disp("correct: " + correct );
 
+EndTime = toc(BeginTime);
 
+disp("Run Time: ");
+fprintf('%d milliseconds\n',EndTime);
 
 %the network function
 %----------------------------------
@@ -141,7 +149,16 @@ function c = runNetwork(t, k, l, g, r)
     timesTrained = 0;
     c = 0;
     
+    %Average run time variable
+    averageRunTime = 0;
+    
+    
+    
     while timesTrained < t
+        %This one is similar to begintime, but it will be used exclusively to
+        %measure time for every iteration
+         iterationTime = tic;
+  
         timesTrained = timesTrained + 1;
         
         %initialize the cost of this batch
@@ -217,7 +234,18 @@ function c = runNetwork(t, k, l, g, r)
             %adjust the bais of the nextwork
             outputBias = outputBias + k.*hiddenToOutputDelta;
             hiddenBias = hiddenBias + k.*inputToHiddenDelta;
+        
+        %Get Time of current iteration using iteration time
+        
+        currentIteration = toc(iterationTime);
+        
+        %Add it to average time variable
+        averageRunTime = averageRunTime + currentIteration;
+        
         end
+        
+       
+        
         
         %avarage the cost
         avgCost = batchCost / numberOfInputs;
@@ -232,8 +260,18 @@ function c = runNetwork(t, k, l, g, r)
         
         %update the cost
         c = c + cost;
+        
+        %Average the total time by dividing by number of times loop runs
+        averageRunTime = averageRunTime / t;
+        
+        disp("Average Run Time: ");
+        fprintf('%d milliseconds\n',averageRunTime);
+
+        
     end
 
+     
+    
     c = c / t;
     
     if r == true
@@ -256,7 +294,7 @@ function n = netOutput(w,p,b)
 n = (w * p) + b;
 end
 
-
+%A function that returns time in hour:minutes:seconds
 
 %code from http://ufldl.stanford.edu/wiki/index.php/Using_the_MNIST_Dataset
 function images = loadMNISTImages(filename)
