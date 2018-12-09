@@ -13,6 +13,9 @@ void configureOutputMatricies(); //Sets up the output matrix for the labels
 void calculateSizes();           //Calculates numberOfInputs and inputSize
 void initWeightsAndBiases();     //Init the weight and bias matrices
 
+//Runs the network (see comment above implemention for arguement descriptions)
+double runNetwork(int t, double k, bool l, bool r);
+
 //The matrices for the input
 mat outputLabels;
 mat inputMatrices;
@@ -46,6 +49,14 @@ int main()
 
 	//initalize the weights and biases
 	initWeightsAndBiases();
+
+	//run the neural network with 200 iterations
+	runNetwork(200, 2, true, false);
+
+	//run a test to see how well it learned
+	double correct = runNetwork(1, 2, false, true);
+
+	std::cout << "The network correctly identified: " << correct << "%!\n";
 
 	//Wait for user input so the program doesn't just clos
 	getchar();
@@ -113,6 +124,22 @@ void initWeightsAndBiases()
 	outputBias = (2 * randu<mat>(outputSize, 1)) - 1;
 }
 
+//the difference between the expected output and our actual output squared
+mat calcCost(const mat& t, const mat& a)
+{
+	mat retval = (t - a).*(t - a);
+}
+
+
+
+//the activations are just the weight * input + bias
+mat netOutput(const mat& w, const mat& p, const mat& b)
+{
+	mat retval = (w * p) + b;
+
+	return retval;
+}
+
 //The network function
 //----------------------------------
 // t = the number of iterations to run the network
@@ -122,6 +149,65 @@ void initWeightsAndBiases()
 //     Note: If r is false, the return will be the avg cost
 double runNetwork(int t, double k, bool l, bool r)
 {
+	//init the times trained and return value to 0
+	int timesTrained = 0;
+	int retval = 0;
+
+	//we will train the network t number of times
+	while (timesTrained < t)
+	{
+		//increment the number of times we have trained
+		++timesTrained;
+
+		//%initialize the cost of this batch
+		//batchCost = zeros(outputSize, 1);
+
+		//number of correct guesses this batch
+		int numCorrect = 0;
+
+		//for each of the inputs in the batch
+		for (int i = 0; i < numberOfInputs; ++i)
+		{
+			//get the corresponding input
+			mat inputVec /*= inputMatrices(:,i) */;
+
+			int label /*= outputLabels(i, :)*/;
+
+			//get the desired output matrix from the label
+			mat desiredOutput /*= outputMatricies(:, label)*/;
+
+			//calulate the output of the hidden layer
+			mat hiddenActivations = netOutput(inputToHiddenWeights, inputVec, hiddenBias);
+			mat hiddenOutput = logsig(hiddenActivations);
+
+			//use the output of the hidden layer as the inputs for the output layer
+		    mat outputActivations = netOutput(hiddentoOutputWeights, hiddenOutput, outputBias);
+			mat finalOutput = logsig(outputActivations);
+
+			//calculate the error of this result
+			mat error = desiredOutput - finalOutput;
+
+			//calculate cost of this input
+			mat cost = calcCost(desiredOutput, finalOutput);
+
+			//add the error from this batch to the current total error matrix
+			//batchCost = batchCost + cost;
+
+			//if we are returning the %correct instead of the cost
+			if (r == true)
+			{
+
+			}
+
+			//if we are not learning, no need to update the weights / bias
+			if (l == false)
+				continue;
+
+
+
+		}
+
+	}
 
 	return 0;
 }
