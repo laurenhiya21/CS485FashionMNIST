@@ -65,16 +65,16 @@ outputMatricies = outputMatricies';
 
 %The size (neurons) of the hidden layer
 global hiddenSize;
-hiddenSize = 12;
+hiddenSize = 8;
 
 global batchSize;
-batchSize = 50;
+batchSize = 5;
 
 global batching;
 batching = true;
 
 global maxInputs;
-maxInputs = 10000;
+maxInputs = 1000;
 
 global iterations;
 iterations = 400;
@@ -132,7 +132,7 @@ xlabel(iterations + " Iterations");
 BeginTime = tic;
 
 %run the neural network with 200 iterations
-runNetwork(iterations, 2, true, true, false);
+runNetwork(iterations, .5, true, true, false);
     
 %run a test to see how well it learned
 correct = runNetwork(1, 2, false, false, true);

@@ -10,28 +10,34 @@ using namespace arma;
 
 //Forward declarations
 void readCSV(const char * file); //Reads a given matrix into the neural network
+void readTest(const char * file); //reads the test file
 void configureOutputMatricies(); //Sets up the output matrix for the labels
 void calculateSizes();           //Calculates numberOfInputs and inputSize
 void initWeightsAndBiases();     //Init the weight and bias matrices
 
 //Runs the network (see comment above implemention for arguement descriptions)
-double runNetwork(int t, double k, bool l, bool r);
+double runNetwork(int t, double k, bool l, bool r, bool test);
 
 //The matrices for the input
 mat outputLabels;
 mat inputMatrices;
+mat outputSubmission;
 
 //The matrix for parsing labels
 mat outputMatricies;
 
 //Parameters
-const int hiddenSize = 12;
-int iterations = 400;
+const int hiddenSize = 16;
+const int hidden2Size = 8;
 
-int batchSize = 50;
+int iterations = 300;
+
+int batchSize = 30;
 bool batching = true;
 
-int maxInputs = 10000;
+int maxInputs = 1000;
+
+const int hiddenLayers = 2;
 
 //Sizes
 int outputSize;
@@ -41,6 +47,9 @@ int inputSize;
 //Weights / Biases
 mat inputToHiddenWeights;
 mat hiddenBias;
+
+mat hiddentoHidden2Weights;
+mat hidden2Bias;
 
 mat hiddentoOutputWeights;
 mat outputBias;
@@ -54,7 +63,7 @@ int main()
 	arma_rng::set_seed_random();
 
 	//Read the data files into the nueral network
-	readCSV("train.csv");
+	readCSV("mini_train.csv");
 
 	//Configure the label matrix
 	configureOutputMatricies();
@@ -66,14 +75,17 @@ int main()
 	initWeightsAndBiases();
 
 	//run the neural network with 200 iterations
-	runNetwork(iterations, 2, true, false);
+	runNetwork(iterations, 1.5, true, false, false);
 
 	double trainedTime = totalTime;
 
 	//run a test to see how well it learned
-	double correct = runNetwork(1, 2, false, true);
+	double correct = runNetwork(1, 2, false, true, false);
 
-	std::cout << hiddenSize << " Neurons, 1 Hidden Layer, " << correct << "% Correct\n";
+	if (hiddenLayers == 2)
+		std::cout << hiddenSize << "\\" << hidden2Size << " Neurons, 2 Hidden Layers, " << correct << "% Correct\n";
+	else
+		std::cout << hiddenSize << " Neurons, 1 Hidden Layer, " << correct << "% Correct\n";
 
 	if (batching == false)
 	{
@@ -86,7 +98,18 @@ int main()
 
 	std::cout << "Run Time: " << (double)trainedTime / 1000.0 << " seconds\n";
 
-	std::cout << iterations << " Iterations";
+	std::cout << iterations << " Iterations\n";
+
+	readTest("test.csv");
+
+	calculateSizes();
+
+	//test time
+	runNetwork(1, 2, false, true, true);
+
+	outputSubmission.save("ourSubmission.csv", csv_ascii);
+
+	std::cout << "output: ourSubmission.csv\n";
 
 	//Wait for user input so the program doesn't just close
 	getchar();
@@ -109,6 +132,36 @@ void readCSV(const char * file)
 
 	// remove the labels from the matrix
 	inputMatrices.shed_cols(0, 1);
+
+	//we have to transpose the matricies for our NN format
+	inplace_trans(inputMatrices);
+	inplace_trans(outputLabels);
+
+	DWORD endTime = timeGetTime();
+
+	std::cout << "file read! Took " << (double)(endTime - startTime) / 1000.0 << " seconds!\n";
+}
+
+//Reads the CSV file and saves it as a matrix
+void readTest(const char * file)
+{
+	std::cout << "Reading Test: " << file << "...\n";
+
+	DWORD startTime = timeGetTime();
+
+	//open the file
+	inputMatrices.load(file, csv_ascii);
+
+	//Get the labels from the matrix
+	outputLabels = inputMatrices.col(0);
+	outputSubmission = outputLabels;
+
+	//setup labels / submission
+	outputLabels.zeros();
+	outputSubmission.resize(outputSubmission.n_rows, 2);
+
+	// remove the labels from the matrix
+	inputMatrices.shed_col(0);
 
 	//we have to transpose the matricies for our NN format
 	inplace_trans(inputMatrices);
@@ -159,9 +212,23 @@ void initWeightsAndBiases()
 	inputToHiddenWeights = (2 * randu<mat>(hiddenSize, inputSize)) - 1;
 	hiddenBias = (2 * randu<mat>(hiddenSize, 1)) - 1;
 
-	//randomly init the output layer weights + biases
-	hiddentoOutputWeights = (2 * randu<mat>(outputSize, hiddenSize)) - 1;
-	outputBias = (2 * randu<mat>(outputSize, 1)) - 1;
+	if (hiddenLayers == 2)
+	{
+		//randomly init the 2nd hidden layer weights + biases
+		hiddentoHidden2Weights = (2 * randu<mat>(hidden2Size, hiddenSize)) - 1;
+		hidden2Bias = (2 * randu<mat>(hidden2Size, 1)) - 1;
+
+		//randomly init the output layer weights + biases
+		hiddentoOutputWeights = (2 * randu<mat>(outputSize, hidden2Size)) - 1;
+		outputBias = (2 * randu<mat>(outputSize, 1)) - 1;
+	}
+	else if (hiddenLayers == 1)
+	{
+		//randomly init the output layer weights + biases
+		hiddentoOutputWeights = (2 * randu<mat>(outputSize, hiddenSize)) - 1;
+		outputBias = (2 * randu<mat>(outputSize, 1)) - 1;
+	}
+
 }
 
 //the difference between the expected output and our actual output squared
@@ -204,7 +271,8 @@ mat deltaLogSig(const mat& m)
 // l = if learning is enabled
 // e = if we want to return what % of the inputs network correctly identified
 //     Note: If r is false, the return will be the avg cost
-double runNetwork(int t, double k, bool l, bool r)
+// test = if this should save results to a test file
+double runNetwork(int t, double k, bool l, bool r, bool test)
 {
 	//init the times trained and return value to 0
 	int timesTrained = 0;
@@ -224,8 +292,13 @@ double runNetwork(int t, double k, bool l, bool r)
 
 	DWORD startTime = timeGetTime();
 
-	mat batchOutputDeltas(outputSize, hiddenSize);
-	mat batchHiddenDeltas(hiddenSize, inputSize);
+	mat batchOutputDeltas;
+	mat batchHidden2Deltas;
+	mat batchHiddenDeltas;
+
+	mat batchOutputBias(outputSize,1);
+	mat batchHidden2Bias(hidden2Size,1);
+	mat batchHiddenBias(hiddenSize,1);
 
 	double nextUpdate = 0;
 
@@ -238,8 +311,21 @@ double runNetwork(int t, double k, bool l, bool r)
 		//init the current batch calculated
 		int currentBatchCalculated = 0;
 
-		batchOutputDeltas.zeros();
-		batchHiddenDeltas.zeros();
+		if (hiddenLayers == 2)
+		{
+			batchOutputDeltas.zeros(outputSize, hidden2Size);
+			batchHidden2Deltas.zeros(hidden2Size, hiddenSize);
+			batchHiddenDeltas.zeros(hiddenSize, inputSize);
+		}
+		else if (hiddenLayers == 1)
+		{
+			batchOutputDeltas.zeros(outputSize, hiddenSize);
+			batchHiddenDeltas.zeros(hiddenSize, inputSize);
+		}
+
+		batchOutputBias.zeros();
+		batchHidden2Bias.zeros();
+	    batchHiddenBias.zeros();
 
 		//for each of the inputs in the batch
 		for (int i = 0; i < numberOfInputs; ++i)
@@ -253,7 +339,7 @@ double runNetwork(int t, double k, bool l, bool r)
 			// divide the input vector by 255 to normalize the inputs
 			inputVec /= 255;
 
-			int label = outputLabels(0,i);
+			int label = outputLabels(0, i);
 
 			//get the desired output matrix from the label
 			mat desiredOutput = outputMatricies.col(label);
@@ -263,8 +349,27 @@ double runNetwork(int t, double k, bool l, bool r)
 			mat hiddenOutput = logsig(hiddenActivations);
 
 			//use the output of the hidden layer as the inputs for the output layer
-		    mat outputActivations = netOutput(hiddentoOutputWeights, hiddenOutput, outputBias);
-			mat finalOutput = logsig(outputActivations);
+			mat outputActivations;
+			mat finalOutput;
+
+			//If we have 2 layers
+			mat hidden2Activations;
+			mat hidden2Output;
+
+			if (hiddenLayers == 2)
+			{
+				hidden2Activations = netOutput(hiddentoHidden2Weights, hiddenOutput, hidden2Bias);
+				hidden2Output = logsig(hidden2Activations);
+
+				outputActivations = netOutput(hiddentoOutputWeights, hidden2Output, outputBias);
+				finalOutput = logsig(outputActivations);
+			}
+			else if (hiddenLayers == 1)
+			{
+				//use the output of the hidden layer as the inputs for the output layer
+				outputActivations = netOutput(hiddentoOutputWeights, hiddenOutput, outputBias);
+				finalOutput = logsig(outputActivations);
+			}
 
 			//calculate the error of this result
 			mat error = desiredOutput - finalOutput;
@@ -281,7 +386,7 @@ double runNetwork(int t, double k, bool l, bool r)
 				//figure out which label the network thought was correct
 				for (int j = 0; j < outputSize; ++j)
 				{
-					double currentLabel = finalOutput(j,0);
+					double currentLabel = finalOutput(j, 0);
 
 					if (bestLabelValue < currentLabel)
 					{
@@ -294,24 +399,63 @@ double runNetwork(int t, double k, bool l, bool r)
 				//if the network guessed correctly, give it a point!
 				if (bestLabel == label)
 					numCorrect++;
+
+				if (test == true)
+				{
+					outputSubmission(i, 1) = bestLabel;
+				}
+
 			}
 
 			//if we are not learning, no need to update the weights / bias
 			if (l == false)
 				continue;
 
-			//get the delta for backprop
-			mat hiddenToOutputDelta = deltaLogSig(finalOutput) % error;
-			mat inputToHiddenDelta = deltaLogSig(hiddenOutput) % (hiddentoOutputWeights.t() * hiddenToOutputDelta);
+			//forward dec the matrices
+			mat hiddenToOutputDelta;
+			mat hiddenToHidden2Delta;
+			mat inputToHiddenDelta;
+			mat finalHiddenToOutputDelta;
+			mat finalhiddenToHidden2Delta;
+			mat finalInputToHiddenDelta;
 
-			//adjust the weights of the network
-			mat finalHiddenToOutputDelta = k * hiddenToOutputDelta * hiddenOutput.t();
-			mat finalInputToHiddenDelta = k * inputToHiddenDelta  * inputVec.t();
+			if (hiddenLayers == 1)
+			{
+				//get the delta for backprop
+				hiddenToOutputDelta = deltaLogSig(finalOutput) % error;
+				inputToHiddenDelta = deltaLogSig(hiddenOutput) % (hiddentoOutputWeights.t() * hiddenToOutputDelta);
+
+				//adjust the weights of the network
+				finalHiddenToOutputDelta = k * hiddenToOutputDelta * hiddenOutput.t();
+				finalInputToHiddenDelta = k * inputToHiddenDelta  * inputVec.t();
+			}
+			else
+			{
+				//get the delta for backprop
+				hiddenToOutputDelta = deltaLogSig(finalOutput) % error;
+				hiddenToHidden2Delta = deltaLogSig(hidden2Output) % (hiddentoOutputWeights.t() * hiddenToOutputDelta);
+				inputToHiddenDelta = deltaLogSig(hiddenOutput) % (hiddentoHidden2Weights.t() * hiddenToHidden2Delta);
+
+				//adjust the weights of the network
+				finalHiddenToOutputDelta = k * hiddenToOutputDelta * hidden2Output.t();
+				finalhiddenToHidden2Delta = k * hiddenToHidden2Delta * hiddenOutput.t();
+				finalInputToHiddenDelta = k * inputToHiddenDelta  * inputVec.t();
+			}
+
 
 			if (batching == true)
 			{
 				batchOutputDeltas += finalHiddenToOutputDelta;
 				batchHiddenDeltas += finalInputToHiddenDelta;
+
+				if (hiddenLayers == 2)
+				{
+					batchHidden2Deltas += finalhiddenToHidden2Delta;
+					batchHidden2Bias += hiddenToHidden2Delta;
+				}
+					
+				batchOutputBias += hiddenToOutputDelta;
+				batchHiddenBias += inputToHiddenDelta;
 
 				if (currentBatchCalculated != batchSize && i != numberOfInputs)
 					continue;
@@ -319,14 +463,29 @@ double runNetwork(int t, double k, bool l, bool r)
 				//avarage the deltas
 				batchOutputDeltas /= currentBatchCalculated;
 				batchHiddenDeltas /= currentBatchCalculated;
+				batchHidden2Deltas /= currentBatchCalculated;
+
+				batchOutputBias /= currentBatchCalculated;
+				batchHidden2Bias /= currentBatchCalculated;
+				batchHiddenBias /= currentBatchCalculated;
 
 				//these are the deltas we will use
 				finalHiddenToOutputDelta = batchOutputDeltas;
 				finalInputToHiddenDelta = batchHiddenDeltas;
+				finalhiddenToHidden2Delta = batchHidden2Deltas;
+
+				hiddenToOutputDelta = batchOutputBias;
+				hiddenToHidden2Delta = batchHidden2Bias;
+				inputToHiddenDelta = batchHiddenBias;
 
 				//reset the batch deltas
 				batchOutputDeltas.zeros();
 				batchHiddenDeltas.zeros();
+				batchHidden2Deltas.zeros();
+
+				batchOutputBias.zeros();
+				batchHidden2Bias.zeros();
+				batchHiddenBias.zeros();
 
 				//reset cbc
 				currentBatchCalculated = 0;
@@ -339,6 +498,12 @@ double runNetwork(int t, double k, bool l, bool r)
 			//adjust the bais of the nextwork
 			outputBias = outputBias + k * hiddenToOutputDelta;
 			hiddenBias = hiddenBias + k * inputToHiddenDelta;
+
+			if (hiddenLayers == 2)
+			{
+				hiddentoHidden2Weights += finalhiddenToHidden2Delta;
+				hidden2Bias = hidden2Bias + k * hiddenToHidden2Delta;
+			}
 
 		}
 
