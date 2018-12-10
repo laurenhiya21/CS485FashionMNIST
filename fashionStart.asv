@@ -160,13 +160,13 @@ function c = runNetwork(t, k, l, g, r)
     %Average run time variable
     averageRunTime = 0;
     
-    iterationTime = tic;
-  
+    
     
     while timesTrained < t
         %This one is similar to begintime, but it will be used exclusively to
         %measure time for every iteration
-         
+         iterationTime = tic;
+  
         timesTrained = timesTrained + 1;
         
         %initialize the cost of this batch
@@ -245,8 +245,13 @@ function c = runNetwork(t, k, l, g, r)
         
         %Get Time of current iteration using iteration time
         
+        currentIteration = toc(iterationTime);
         
+        %Convert from seconds to milliseconds
+        currentIteration = currentIteration * 1000;
         
+        %Add it to average time variable
+        averageRunTime = averageRunTime + currentIteration;
         
         end
         
@@ -278,22 +283,11 @@ function c = runNetwork(t, k, l, g, r)
     if r == true
         c = (numCorrect / (t * batchSize) * 100);
     end 
-
-        currentIteration = toc(iterationTime);
-        
-        %Convert from seconds to milliseconds
-        currentIteration = currentIteration * 1000;
-        
-%Add it to average time variable
-averageRunTime = averageRunTime + currentIteration;
-        
-    
- 
     
 %Average the total time by dividing by number of times loop runs
 averageRunTime = averageRunTime / t;
-
-
+   
+disp(av
 
 disp("Average Run Time: ");
 fprintf('%d milliseconds\n',averageRunTime);
