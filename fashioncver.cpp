@@ -24,7 +24,7 @@ mat inputMatrices;
 mat outputMatricies;
 
 //Sizes
-const int hiddenSize = 8;
+const int hiddenSize = 16;
 int outputSize;
 int numberOfInputs;
 int inputSize;
@@ -38,6 +38,9 @@ mat outputBias;
 
 int main()
 {
+	//randomize the seed
+	arma_rng::set_seed_random();
+
 	//Read the data files into the nueral network
 	readCSV("mini_train.csv");
 
@@ -51,7 +54,7 @@ int main()
 	initWeightsAndBiases();
 
 	//run the neural network with 200 iterations
-	runNetwork(200, 2, true, false);
+	runNetwork(400, 2, true, false);
 
 	//run a test to see how well it learned
 	double correct = runNetwork(1, 2, false, true);
@@ -127,15 +130,32 @@ void initWeightsAndBiases()
 //the difference between the expected output and our actual output squared
 mat calcCost(const mat& t, const mat& a)
 {
-	mat retval = (t - a).*(t - a);
+	//% is elementwise multiplacation
+	mat retval = (t - a) % (t - a);
+
+	return retval;
 }
-
-
 
 //the activations are just the weight * input + bias
 mat netOutput(const mat& w, const mat& p, const mat& b)
 {
 	mat retval = (w * p) + b;
+
+	return retval;
+}
+
+mat logsig(const mat& m)
+{
+	//logSig(n) = 1 / (1 + exp(-n))
+	mat retval = 1 / (1 +  exp((-1 * m)) );
+
+	return retval;
+}
+
+mat deltaLogSig(const mat& m)
+{
+	//d = a.*(1-a);
+	mat retval = m % (1 - m);
 
 	return retval;
 }
@@ -153,6 +173,9 @@ double runNetwork(int t, double k, bool l, bool r)
 	int timesTrained = 0;
 	int retval = 0;
 
+	//number of correct guesses this batch
+	int numCorrect = 0;
+
 	//we will train the network t number of times
 	while (timesTrained < t)
 	{
@@ -162,19 +185,16 @@ double runNetwork(int t, double k, bool l, bool r)
 		//%initialize the cost of this batch
 		//batchCost = zeros(outputSize, 1);
 
-		//number of correct guesses this batch
-		int numCorrect = 0;
-
 		//for each of the inputs in the batch
 		for (int i = 0; i < numberOfInputs; ++i)
 		{
 			//get the corresponding input
-			mat inputVec /*= inputMatrices(:,i) */;
+			mat inputVec = inputMatrices.col(i);
 
-			int label /*= outputLabels(i, :)*/;
+			int label = outputLabels(0,i);
 
 			//get the desired output matrix from the label
-			mat desiredOutput /*= outputMatricies(:, label)*/;
+			mat desiredOutput = outputMatricies.col(label);
 
 			//calulate the output of the hidden layer
 			mat hiddenActivations = netOutput(inputToHiddenWeights, inputVec, hiddenBias);
@@ -196,18 +216,47 @@ double runNetwork(int t, double k, bool l, bool r)
 			//if we are returning the %correct instead of the cost
 			if (r == true)
 			{
+				double bestLabelValue = -999999;
+				int bestLabel = 0;
 
+				//figure out which label the network thought was correct
+				for (int j = 0; j < outputSize; ++j)
+				{
+					double currentLabel = finalOutput(j,0);
+
+					if (bestLabelValue < currentLabel)
+					{
+						bestLabelValue = currentLabel;
+						bestLabel = j;
+					}
+
+				}
+
+				//if the network guessed correctly, give it a point!
+				if (bestLabel == label)
+					numCorrect++;
 			}
 
 			//if we are not learning, no need to update the weights / bias
 			if (l == false)
 				continue;
 
+			//get the delta for backprop
+			mat hiddenToOutputDelta = deltaLogSig(finalOutput) % error;
+			mat inputToHiddenDelta = deltaLogSig(hiddenOutput) % (hiddentoOutputWeights.t() * hiddenToOutputDelta);
 
+
+			//adjust the weights of the network
+		    hiddentoOutputWeights += k * hiddenToOutputDelta * hiddenOutput.t();
+			inputToHiddenWeights  += k * inputToHiddenDelta  * inputVec.t();
+
+			//adjust the bais of the nextwork
+			outputBias = outputBias + k * hiddenToOutputDelta;
+			hiddenBias = hiddenBias + k * inputToHiddenDelta;
 
 		}
 
 	}
 
-	return 0;
+	return (double)numCorrect / (double)( t * numberOfInputs) * 100;
 }
