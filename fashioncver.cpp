@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <armadillo>
+#include <Windows.h>
 
 //We are using the armadilo math library
 using namespace arma;
@@ -36,6 +37,9 @@ mat hiddenBias;
 mat hiddentoOutputWeights;
 mat outputBias;
 
+//For tracking time
+DWORD totalTime;
+
 int main()
 {
 	//randomize the seed
@@ -60,6 +64,7 @@ int main()
 	double correct = runNetwork(1, 2, false, true);
 
 	std::cout << "The network correctly identified: " << correct << "%!\n";
+	std::cout << "Run Time: " << totalTime << " milliseconds!";
 
 	//Wait for user input so the program doesn't just clos
 	getchar();
@@ -71,6 +76,8 @@ int main()
 void readCSV(const char * file)
 {
 	std::cout << "Reading: " << file << "...\n";
+
+	DWORD startTime = timeGetTime();
 
 	//open the file
 	inputMatrices.load(file, csv_ascii);
@@ -85,7 +92,9 @@ void readCSV(const char * file)
 	inplace_trans(inputMatrices);
 	inplace_trans(outputLabels);
 
-	std::cout << "file read!\n";
+	DWORD endTime = timeGetTime();
+
+	std::cout << "file read! Took " << endTime << " milliseconds\n";
 }
 
 void configureOutputMatricies()
@@ -176,6 +185,10 @@ double runNetwork(int t, double k, bool l, bool r)
 	//number of correct guesses this batch
 	int numCorrect = 0;
 
+    totalTime = 0;
+
+	DWORD startTime = timeGetTime();
+
 	//we will train the network t number of times
 	while (timesTrained < t)
 	{
@@ -258,8 +271,9 @@ double runNetwork(int t, double k, bool l, bool r)
 			hiddenBias = hiddenBias + k * inputToHiddenDelta;
 
 		}
-
 	}
+	DWORD endTime = timeGetTime();
+	totalTime = endTime - startTime;
 
 	return (double)numCorrect / (double)( t * numberOfInputs) * 100;
 }
