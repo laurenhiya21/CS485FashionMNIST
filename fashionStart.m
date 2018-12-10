@@ -11,58 +11,73 @@ global numberOfInputs;
 global trainData;
 global latestPrediction;
 
-    
-    latestPrediction = 0;
+latestPrediction = 0;
 
-    %get the inputs and labels from MNIST
-    trainData = csvread('train.csv',1,1);
-   
-    csvLabels = trainData(:,1);
-   
-    trainData(:,1) = [];
-    
-    csvInput = trainData;
-    
-    %transpose the input
-    csvInput = csvInput';
-    
-    %normalize the input
-    csvInput = csvInput./255;
-    
-    %the matrix represenation of each label
-    t0 = [1;0;0;0;0;0;0;0;0;0];
-    t1 = [0;1;0;0;0;0;0;0;0;0];
-    t2 = [0;0;1;0;0;0;0;0;0;0];
-    t3 = [0;0;0;1;0;0;0;0;0;0];
-    t4 = [0;0;0;0;1;0;0;0;0;0];
-    t5 = [0;0;0;0;0;1;0;0;0;0];
-    t6 = [0;0;0;0;0;0;1;0;0;0];
-    t7 = [0;0;0;0;0;0;0;1;0;0];
-    t8 = [0;0;0;0;0;0;0;0;1;0];
-    t9 = [0;0;0;0;0;0;0;0;0;1];
+beginTime = tic;
 
-    %put them all in a single matrix
-    outputMatricies = [t0 t1 t2 t3 t4 t5 t6 t7 t8 t9];
+disp("Reading: train.csv..." );
+
+%get the inputs and labels from MNIST
+trainData = csvread('train.csv',1,1);
+   
+timeElapsed = toc(beginTime);
+
+disp("file read! Took " + timeElapsed + "seconds!");
+
+csvLabels = trainData(:,1);
+   
+trainData(:,1) = [];
     
-    %Transposing outputMatricies
-    outputMatricies = outputMatricies';
+csvInput = trainData;
     
-    %Uncomment this line to verify that csvLabels is working correctly
-    %disp(csvLabels);
+%transpose the input
+csvInput = csvInput';
+    
+%normalize the input
+csvInput = csvInput./255;
+    
+%the matrix represenation of each label
+t0 = [1;0;0;0;0;0;0;0;0;0];
+t1 = [0;1;0;0;0;0;0;0;0;0];
+t2 = [0;0;1;0;0;0;0;0;0;0];
+t3 = [0;0;0;1;0;0;0;0;0;0];
+t4 = [0;0;0;0;1;0;0;0;0;0];
+t5 = [0;0;0;0;0;1;0;0;0;0];
+t6 = [0;0;0;0;0;0;1;0;0;0];
+t7 = [0;0;0;0;0;0;0;1;0;0];
+t8 = [0;0;0;0;0;0;0;0;1;0];
+t9 = [0;0;0;0;0;0;0;0;0;1];
+
+%put them all in a single matrix
+outputMatricies = [t0 t1 t2 t3 t4 t5 t6 t7 t8 t9];
+    
+%Transposing outputMatricies
+outputMatricies = outputMatricies';
+    
+%Uncomment this line to verify that csvLabels is working correctly
+%disp(csvLabels);
  
-    %Uncomment this line to verify that csvInput is working correctly
-    %disp(csvInput) 
-     
-    
+%Uncomment this line to verify that csvInput is working correctly
+%disp(csvInput) 
 
 %parameters neural network
 %----------------------------------
 
 %The size (neurons) of the hidden layer
-hiddenSize = 16;
+global hiddenSize;
+hiddenSize = 8;
 
 global batchSize;
-batchSize = 100;
+batchSize = 500;
+
+global batching;
+batching = true;
+
+global maxInputs;
+maxInputs = 0;
+
+global iterations;
+iterations = 400;
 
 %the size of the neural network (autogenerate later, hardcode for now)
 %------------------------
@@ -72,7 +87,12 @@ outputSize = size(outputMatricies,2);
 
 numberOfInputs = size(csvInput,2);
 
+if maxInputs > 0 && numberOfInputs > maxInputs
+    numberOfInputs = maxInputs;
+end
+
 %The size of the input vector
+global inputSize;
 inputSize = size(csvInput,1);
 
 %intialize the neural network
@@ -103,7 +123,7 @@ figure;
 hold on; 
 grid on;
 ylabel("Cost");
-xlabel("Iteration");
+xlabel(iterations + " Iterations");
 
 %run the network
 %----------------------------------
@@ -111,27 +131,34 @@ xlabel("Iteration");
 %A variable that represents total runtime of code
 BeginTime = tic;
 
+%run the neural network with 200 iterations
+runNetwork(iterations, 2, true, true, false);
+    
+%run a test to see how well it learned
+correct = runNetwork(1, 2, false, false, true);
 
-    
-    %run the neural network with 200 iterations
-    runNetwork(400, 2, true, true, false);
-    
-    %run a test to see how well it learned
-    correct = runNetwork(1, 2, false, false, true);
-    
-    title(hiddenSize + " Neuron with MNIST Data " + correct + "% Correct");
-
-    %show the output
-    disp("correct: " + correct );
+%show the output
+disp("The network correctly identified: " + correct + "%!");
 
 %Get total runtime in seconds
 EndTime = toc(BeginTime);
 
+mainTitle = hiddenSize + " Neurons, 1 Hidden Layer, " + correct + "% Correct";
 
+if batching == false
+    subTitle = "No batching, ";
+else
+    subTitle = "Batches of " + batchSize + ", ";
+end
+
+subTitle = subTitle + "Run Time: " + EndTime + " seconds";
+
+title({mainTitle,subTitle});
+
+%convert to milliseconds
 EndTime = EndTime * 1000;
 
-disp("Run Time: ");
-fprintf('%d milliseconds\n',EndTime);
+disp("Run Time: " + EndTime + "milliseconds!");
 
 %the network function
 %----------------------------------
@@ -159,6 +186,11 @@ function c = runNetwork(t, k, l, g, r)
     %We need to get the sizes
     global numberOfInputs;
     global outputSize;
+    global hiddenSize;
+    global inputSize;
+    
+    %For batching
+    global batching;
     global batchSize;
     
     %init the times trained and cost to 0
@@ -169,6 +201,12 @@ function c = runNetwork(t, k, l, g, r)
     averageRunTime = 0;
     
     iterationTime = tic;
+    
+    currentBatchSize = numberOfInputs;
+    
+    if batching == true
+        currentBatchSize = batchSize;
+    end
   
     
     while timesTrained < t
@@ -180,11 +218,21 @@ function c = runNetwork(t, k, l, g, r)
         %initialize the cost of this batch
         batchCost = zeros(outputSize,1);
         
+        %batch deltas for... batching
+        batchOutputDeltas = zeros(outputSize,hiddenSize);
+        batchHiddenDeltas = zeros(hiddenSize,inputSize);
+        
+        Error = zeros(outputSize,1);
+        
         %number of correct guesses this batch
         numCorrect = 0;
+        currentBatchCalculated = 0;
  
-        %for each of the inputs in the batch
-        for i = 1:(batchSize)
+        %for each of the inputs in the set
+        for i = 1:(numberOfInputs)
+            %increment cbc
+            currentBatchCalculated = currentBatchCalculated + 1;
+            
             %get the corresponding input
             inputVec = csvInput(:,i);
           
@@ -244,27 +292,49 @@ function c = runNetwork(t, k, l, g, r)
             hiddenToOutputDelta = deltaLogSig(finalOutput).*error;
             inputToHiddenDelta = deltaLogSig(hiddenOutput).*(hiddentoOutputWeights.'*hiddenToOutputDelta);
             
+            finalHiddenToOutputDelta = k.*hiddenToOutputDelta*(hiddenOutput.');
+            finalInputToHiddenWeights = k.*inputToHiddenDelta*(inputVec.');
+            
+            if batching == true
+                batchOutputDeltas = batchOutputDeltas + finalHiddenToOutputDelta;
+                batchHiddenDeltas = batchHiddenDeltas + finalInputToHiddenWeights;
+                
+                if currentBatchCalculated ~= batchSize && i ~= numberOfInputs
+                    continue;
+                end
+               
+                %avarage the deltas
+                batchOutputDeltas = batchOutputDeltas./currentBatchCalculated;
+                batchHiddenDeltas = batchHiddenDeltas./currentBatchCalculated;
+               
+                %these are the deltas we will use
+                finalHiddenToOutputDelta = batchOutputDeltas;
+                finalInputToHiddenWeights = batchHiddenDeltas;
+                
+                %reset the batch deltas
+                batchOutputDeltas = zeros(outputSize,hiddenSize);
+                batchHiddenDeltas = zeros(hiddenSize,inputSize);
 
+                %reset cbc
+                currentBatchCalculated = 0;
+            end
+            
+            
+            
             %adjust the weights of the network
-            hiddentoOutputWeights = hiddentoOutputWeights + k.*hiddenToOutputDelta*(hiddenOutput.');
-            inputToHiddenWeights = inputToHiddenWeights + k.*inputToHiddenDelta*(inputVec.');
+            hiddentoOutputWeights = hiddentoOutputWeights + finalHiddenToOutputDelta;
+            inputToHiddenWeights = inputToHiddenWeights + finalInputToHiddenWeights;
             
             %adjust the bais of the nextwork
             outputBias = outputBias + k.*hiddenToOutputDelta;
             hiddenBias = hiddenBias + k.*inputToHiddenDelta;
         
         %Get Time of current iteration using iteration time
-        
-        
-        
-        
+
         end
         
-       
-        
-        
         %avarage the cost
-        avgCost = batchCost / batchSize;
+        avgCost = batchCost / numberOfInputs;
        
         %the cost is the sum of this batches costs
         cost = sum(avgCost);
@@ -276,43 +346,32 @@ function c = runNetwork(t, k, l, g, r)
         
         %update the cost
         c = c + cost;
-        
-        
-        
+ 
     end
 
-     
-    
     c = c / t;
     
     if r == true
-        c = (numCorrect / (t * batchSize) * 100);
+        c = (numCorrect / (t * numberOfInputs) * 100);
     end 
 
-        currentIteration = toc(iterationTime);
+    currentIteration = toc(iterationTime);
         
-        %Convert from seconds to milliseconds
-        currentIteration = currentIteration * 1000;
+    %Convert from seconds to milliseconds
+    currentIteration = currentIteration * 1000;
         
-%Add it to average time variable
-averageRunTime = averageRunTime + currentIteration;
-        
-    
- 
-    
-%Average the total time by dividing by number of times loop runs
-averageRunTime = averageRunTime / t;
+    %Add it to average time variable
+    averageRunTime = averageRunTime + currentIteration;
 
+    %Average the total time by dividing by number of times loop runs
+    averageRunTime = averageRunTime / t;
 
-
-disp("Average Run Time: ");
-fprintf('%d milliseconds\n',averageRunTime);
+    %disp("Average Run Time: "); 
+    %fprintf('%d milliseconds\n',averageRunTime);
     
 
-disp("Prediction: ");
-disp(latestPrediction);
-
-
+    %disp("Prediction: ");
+    %disp(latestPrediction);
 end
 
 %delta of the log sig function
@@ -328,57 +387,4 @@ end
 % the activations are just the weight * input + bias
 function n = netOutput(w,p,b)
 n = (w * p) + b;
-end
-
-
-
-%A function that returns time in hour:minutes:seconds
-
-%code from http://ufldl.stanford.edu/wiki/index.php/Using_the_MNIST_Dataset
-function images = loadMNISTImages(filename)
-%loadMNISTImages returns a 28x28x[number of MNIST images] matrix containing
-%the raw MNIST images
-
-fp = fopen(filename, 'rb');
-assert(fp ~= -1, ['Could not open ', filename, '']);
-
-magic = fread(fp, 1, 'int32', 0, 'ieee-be');
-assert(magic == 2051, ['Bad magic number in ', filename, '']);
-
-numImages = fread(fp, 1, 'int32', 0, 'ieee-be');
-numRows = fread(fp, 1, 'int32', 0, 'ieee-be');
-numCols = fread(fp, 1, 'int32', 0, 'ieee-be');
-
-images = fread(fp, inf, 'unsigned char');
-images = reshape(images, numCols, numRows, numImages);
-images = permute(images,[2 1 3]);
-
-fclose(fp);
-
-% Reshape to #pixels x #examples
-images = reshape(images, size(images, 1) * size(images, 2), size(images, 3));
-% Convert to double and rescale to [0,1]
-images = double(images) / 255;
-
-end
-
-%code from http://ufldl.stanford.edu/wiki/index.php/Using_the_MNIST_Dataset
-function labels = loadMNISTLabels(filename)
-%loadMNISTLabels returns a [number of MNIST images]x1 matrix containing
-%the labels for the MNIST images
-
-fp = fopen(filename, 'rb');
-assert(fp ~= -1, ['Could not open ', filename, '']);
-
-magic = fread(fp, 1, 'int32', 0, 'ieee-be');
-assert(magic == 2049, ['Bad magic number in ', filename, '']);
-
-numLabels = fread(fp, 1, 'int32', 0, 'ieee-be');
-
-labels = fread(fp, inf, 'unsigned char');
-
-assert(size(labels,1) == numLabels, 'Mismatch in label count');
-
-fclose(fp);
-
 end
