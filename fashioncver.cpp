@@ -27,17 +27,20 @@ mat outputSubmission;
 mat outputMatricies;
 
 //Parameters
-const int hiddenSize = 16;
-const int hidden2Size = 8;
+const int kValue = 1.5;
+const int hiddenSize = 8;
+
+const int hiddenLayers = 1;
+const int hidden2Size = 1;
 
 int iterations = 300;
 
-int batchSize = 30;
 bool batching = true;
+int batchSize = 30;
 
-int maxInputs = 1000;
-
-const int hiddenLayers = 2;
+//SHOULD BE 0 and TRUE for final test
+int maxInputs = 0;
+bool output = true;
 
 //Sizes
 int outputSize;
@@ -63,7 +66,7 @@ int main()
 	arma_rng::set_seed_random();
 
 	//Read the data files into the nueral network
-	readCSV("mini_train.csv");
+	readCSV("train.csv");
 
 	//Configure the label matrix
 	configureOutputMatricies();
@@ -75,7 +78,7 @@ int main()
 	initWeightsAndBiases();
 
 	//run the neural network with 200 iterations
-	runNetwork(iterations, 1.5, true, false, false);
+	runNetwork(iterations, kValue, true, false, false);
 
 	double trainedTime = totalTime;
 
@@ -99,6 +102,12 @@ int main()
 	std::cout << "Run Time: " << (double)trainedTime / 1000.0 << " seconds\n";
 
 	std::cout << iterations << " Iterations\n";
+
+	if (output == false)
+	{
+		getchar();
+		return 0;
+	}
 
 	readTest("test.csv");
 
