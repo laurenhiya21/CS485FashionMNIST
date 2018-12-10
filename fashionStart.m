@@ -13,9 +13,17 @@ global latestPrediction;
 
 latestPrediction = 0;
 
+beginTime = tic;
+
+disp("Reading: train.csv..." );
+
 %get the inputs and labels from MNIST
 trainData = csvread('train.csv',1,1);
    
+timeElapsed = toc(beginTime);
+
+disp("file read! Took " + timeElapsed + "seconds!");
+
 csvLabels = trainData(:,1);
    
 trainData(:,1) = [];
@@ -56,10 +64,14 @@ outputMatricies = outputMatricies';
 %----------------------------------
 
 %The size (neurons) of the hidden layer
-hiddenSize = 16;
+global hiddenSize;
+hiddenSize = 8;
 
 global batchSize;
-batchSize = 100;
+batchSize = 500;
+
+global batching;
+batching = true;
 
 %the size of the neural network (autogenerate later, hardcode for now)
 %------------------------
@@ -109,7 +121,7 @@ xlabel("Iteration");
 BeginTime = tic;
 
 %run the neural network with 200 iterations
-runNetwork(400, 2, true, true, false);
+runNetwork(200, 2, true, true, false);
     
 %run a test to see how well it learned
 correct = runNetwork(1, 2, false, false, true);
@@ -117,16 +129,15 @@ correct = runNetwork(1, 2, false, false, true);
 title(hiddenSize + " Neuron with MNIST Data " + correct + "% Correct");
 
 %show the output
-disp("correct: " + correct );
+disp("The network correctly identified: " + correct + "%!");
 
 %Get total runtime in seconds
 EndTime = toc(BeginTime);
 
-
+%convert to milliseconds
 EndTime = EndTime * 1000;
 
-disp("Run Time: ");
-fprintf('%d milliseconds\n',EndTime);
+disp("Run Time: " + EndTime + "milliseconds!");
 
 %the network function
 %----------------------------------
@@ -154,6 +165,10 @@ function c = runNetwork(t, k, l, g, r)
     %We need to get the sizes
     global numberOfInputs;
     global outputSize;
+    global hiddenSize;
+    
+    %For batching
+    global batching;
     global batchSize;
     
     %init the times trained and cost to 0
@@ -164,6 +179,12 @@ function c = runNetwork(t, k, l, g, r)
     averageRunTime = 0;
     
     iterationTime = tic;
+    
+    currentBatchSize = numberOfInputs;
+    
+    if batching == true
+        currentBatchSize = batchSize;
+    end
   
     
     while timesTrained < t
@@ -175,11 +196,21 @@ function c = runNetwork(t, k, l, g, r)
         %initialize the cost of this batch
         batchCost = zeros(outputSize,1);
         
+        %batch deltas for... batching
+        batchOutputDeltas = zeros(outputSize,1);
+        batchHiddenDeltas = zeros(hiddenSize,1);
+        
+        Error = zeros(outputSize,1);
+        
         %number of correct guesses this batch
         numCorrect = 0;
+        currentBatchCalculated = 0;
  
-        %for each of the inputs in the batch
-        for i = 1:(batchSize)
+        %for each of the inputs in the set
+        for i = 1:(numberOfInputs)
+            %increment cbc
+            currentBatchCalculated = currentBatchCalculated + 1;
+            
             %get the corresponding input
             inputVec = csvInput(:,i);
           
@@ -239,7 +270,30 @@ function c = runNetwork(t, k, l, g, r)
             hiddenToOutputDelta = deltaLogSig(finalOutput).*error;
             inputToHiddenDelta = deltaLogSig(hiddenOutput).*(hiddentoOutputWeights.'*hiddenToOutputDelta);
             
+            if batching == true
+                batchOutputDeltas = batchOutputDeltas + hiddenToOutputDelta;
+                batchHiddenDeltas = batchHiddenDeltas + inputToHiddenDelta;
+                
+                if currentBatchCalculated ~= batchSize && i ~= numberOfInputs
+                    continue;
+                end
+               
+                %avarage the deltas
+                batchOutputDeltas = batchOutputDeltas./currentBatchCalculated;
+                batchHiddenDeltas = batchHiddenDeltas./currentBatchCalculated;
+               
+                %these are the deltas we will use
+                hiddenToOutputDelta = batchOutputDeltas;
+                inputToHiddenDelta = batchHiddenDeltas;
+                
+                %reset the batch deltas
+                batchOutputDeltas = zeros(outputSize,1);
+                batchHiddenDeltas = zeros(hiddenSize,1);
 
+                %reset cbc
+                currentBatchCalculated = 0;
+            end
+            
             %adjust the weights of the network
             hiddentoOutputWeights = hiddentoOutputWeights + k.*hiddenToOutputDelta*(hiddenOutput.');
             inputToHiddenWeights = inputToHiddenWeights + k.*inputToHiddenDelta*(inputVec.');
@@ -253,7 +307,7 @@ function c = runNetwork(t, k, l, g, r)
         end
         
         %avarage the cost
-        avgCost = batchCost / batchSize;
+        avgCost = batchCost / numberOfInputs;
        
         %the cost is the sum of this batches costs
         cost = sum(avgCost);
@@ -271,7 +325,7 @@ function c = runNetwork(t, k, l, g, r)
     c = c / t;
     
     if r == true
-        c = (numCorrect / (t * batchSize) * 100);
+        c = (numCorrect / (t * numberOfInputs) * 100);
     end 
 
     currentIteration = toc(iterationTime);
