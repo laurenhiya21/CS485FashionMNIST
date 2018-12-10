@@ -9,17 +9,25 @@ global outputSize;
 %the number of inputs
 global numberOfInputs;
 global trainData;
+global latestPrediction;
 
-
+    
+    latestPrediction = 0;
 
     %get the inputs and labels from MNIST
     trainData = csvread('train.csv',1,1);
    
     csvLabels = trainData(:,1);
    
-    csvInput = csvread('train.csv',1,2);
+    trainData(:,1) = [];
     
+    csvInput = trainData;
+    
+    %transpose the input
     csvInput = csvInput';
+    
+    %normalize the input
+    csvInput = csvInput./255;
     
     %the matrix represenation of each label
     t0 = [1;0;0;0;0;0;0;0;0;0];
@@ -116,7 +124,11 @@ BeginTime = tic;
     %show the output
     disp("correct: " + correct );
 
+%Get total runtime in seconds
 EndTime = toc(BeginTime);
+
+
+EndTime = EndTime * 1000;
 
 disp("Run Time: ");
 fprintf('%d milliseconds\n',EndTime);
@@ -156,13 +168,13 @@ function c = runNetwork(t, k, l, g, r)
     %Average run time variable
     averageRunTime = 0;
     
-    
+    iterationTime = tic;
+  
     
     while timesTrained < t
         %This one is similar to begintime, but it will be used exclusively to
         %measure time for every iteration
-         iterationTime = tic;
-  
+         
         timesTrained = timesTrained + 1;
         
         %initialize the cost of this batch
@@ -190,6 +202,8 @@ function c = runNetwork(t, k, l, g, r)
             outputActivations = netOutput(hiddentoOutputWeights,hiddenOutput,outputBias);
             finalOutput = logsig(outputActivations);
        
+            latestPrediction = finalOutput;
+            
             %calculate the error of this result
             error = desiredOutput - finalOutput;
     
@@ -241,10 +255,8 @@ function c = runNetwork(t, k, l, g, r)
         
         %Get Time of current iteration using iteration time
         
-        currentIteration = toc(iterationTime);
         
-        %Add it to average time variable
-        averageRunTime = averageRunTime + currentIteration;
+        
         
         end
         
@@ -265,12 +277,7 @@ function c = runNetwork(t, k, l, g, r)
         %update the cost
         c = c + cost;
         
-        %Average the total time by dividing by number of times loop runs
-        averageRunTime = averageRunTime / t;
         
-        disp("Average Run Time: ");
-        fprintf('%d milliseconds\n',averageRunTime);
-
         
     end
 
@@ -281,6 +288,31 @@ function c = runNetwork(t, k, l, g, r)
     if r == true
         c = (numCorrect / (t * batchSize) * 100);
     end 
+
+        currentIteration = toc(iterationTime);
+        
+        %Convert from seconds to milliseconds
+        currentIteration = currentIteration * 1000;
+        
+%Add it to average time variable
+averageRunTime = averageRunTime + currentIteration;
+        
+    
+ 
+    
+%Average the total time by dividing by number of times loop runs
+averageRunTime = averageRunTime / t;
+
+
+
+disp("Average Run Time: ");
+fprintf('%d milliseconds\n',averageRunTime);
+    
+
+disp("Prediction: ");
+disp(latestPrediction);
+
+
 end
 
 %delta of the log sig function
@@ -297,6 +329,8 @@ end
 function n = netOutput(w,p,b)
 n = (w * p) + b;
 end
+
+
 
 %A function that returns time in hour:minutes:seconds
 
