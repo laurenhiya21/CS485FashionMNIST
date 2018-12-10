@@ -54,7 +54,7 @@ int main()
 	initWeightsAndBiases();
 
 	//run the neural network with 200 iterations
-	runNetwork(400, 2, true, false);
+	runNetwork(800, 2, true, false);
 
 	//run a test to see how well it learned
 	double correct = runNetwork(1, 2, false, true);
@@ -147,7 +147,7 @@ mat netOutput(const mat& w, const mat& p, const mat& b)
 mat logsig(const mat& m)
 {
 	//logSig(n) = 1 / (1 + exp(-n))
-	mat retval = 1 / (1 +  exp((-1 * m)) );
+	mat retval = 1.0 / (1.0 +  exp((-1.0 * m)) );
 
 	return retval;
 }
@@ -155,7 +155,7 @@ mat logsig(const mat& m)
 mat deltaLogSig(const mat& m)
 {
 	//d = a.*(1-a);
-	mat retval = m % (1 - m);
+	mat retval = m % (1.0 - m);
 
 	return retval;
 }
@@ -190,6 +190,9 @@ double runNetwork(int t, double k, bool l, bool r)
 		{
 			//get the corresponding input
 			mat inputVec = inputMatrices.col(i);
+
+			// divide the input vector by 255 to normalize the inputs
+			inputVec /= 255;
 
 			int label = outputLabels(0,i);
 
