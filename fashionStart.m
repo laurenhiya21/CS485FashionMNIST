@@ -65,16 +65,16 @@ outputMatricies = outputMatricies';
 
 %The size (neurons) of the hidden layer
 global hiddenSize;
-hiddenSize = 8;
+hiddenSize = 12;
 
 global batchSize;
-batchSize = 500;
+batchSize = 50;
 
 global batching;
 batching = true;
 
 global maxInputs;
-maxInputs = 0;
+maxInputs = 10000;
 
 global iterations;
 iterations = 400;
@@ -196,6 +196,7 @@ function c = runNetwork(t, k, l, g, r)
     %init the times trained and cost to 0
     timesTrained = 0;
     c = 0;
+    nextUpdate = 0;
     
     %Average run time variable
     averageRunTime = 0;
@@ -227,6 +228,7 @@ function c = runNetwork(t, k, l, g, r)
         %number of correct guesses this batch
         numCorrect = 0;
         currentBatchCalculated = 0;
+       
  
         %for each of the inputs in the set
         for i = 1:(numberOfInputs)
@@ -293,11 +295,11 @@ function c = runNetwork(t, k, l, g, r)
             inputToHiddenDelta = deltaLogSig(hiddenOutput).*(hiddentoOutputWeights.'*hiddenToOutputDelta);
             
             finalHiddenToOutputDelta = k.*hiddenToOutputDelta*(hiddenOutput.');
-            finalInputToHiddenWeights = k.*inputToHiddenDelta*(inputVec.');
+            finalInputToHiddenDelta = k.*inputToHiddenDelta*(inputVec.');
             
             if batching == true
                 batchOutputDeltas = batchOutputDeltas + finalHiddenToOutputDelta;
-                batchHiddenDeltas = batchHiddenDeltas + finalInputToHiddenWeights;
+                batchHiddenDeltas = batchHiddenDeltas + finalInputToHiddenDelta;
                 
                 if currentBatchCalculated ~= batchSize && i ~= numberOfInputs
                     continue;
@@ -309,7 +311,7 @@ function c = runNetwork(t, k, l, g, r)
                
                 %these are the deltas we will use
                 finalHiddenToOutputDelta = batchOutputDeltas;
-                finalInputToHiddenWeights = batchHiddenDeltas;
+                finalInputToHiddenDelta = batchHiddenDeltas;
                 
                 %reset the batch deltas
                 batchOutputDeltas = zeros(outputSize,hiddenSize);
@@ -323,13 +325,25 @@ function c = runNetwork(t, k, l, g, r)
             
             %adjust the weights of the network
             hiddentoOutputWeights = hiddentoOutputWeights + finalHiddenToOutputDelta;
-            inputToHiddenWeights = inputToHiddenWeights + finalInputToHiddenWeights;
+            inputToHiddenWeights = inputToHiddenWeights + finalInputToHiddenDelta;
             
             %adjust the bais of the nextwork
             outputBias = outputBias + k.*hiddenToOutputDelta;
             hiddenBias = hiddenBias + k.*inputToHiddenDelta;
         
-        %Get Time of current iteration using iteration time
+            percentTrained = (timesTrained + 1) / (t) * 100;
+
+            if percentTrained > nextUpdate
+                intUpdate = floor(nextUpdate);
+			
+                if mod(intUpdate,10) == 0
+                    disp(intUpdate);
+            	else
+                    disp(".");
+                end
+
+                nextUpdate = nextUpdate + 2.5;
+            end
 
         end
         

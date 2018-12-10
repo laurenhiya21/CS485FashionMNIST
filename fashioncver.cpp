@@ -24,8 +24,16 @@ mat inputMatrices;
 //The matrix for parsing labels
 mat outputMatricies;
 
+//Parameters
+const int hiddenSize = 12;
+int iterations = 400;
+
+int batchSize = 50;
+bool batching = true;
+
+int maxInputs = 10000;
+
 //Sizes
-const int hiddenSize = 16;
 int outputSize;
 int numberOfInputs;
 int inputSize;
@@ -46,7 +54,7 @@ int main()
 	arma_rng::set_seed_random();
 
 	//Read the data files into the nueral network
-	readCSV("mini_train.csv");
+	readCSV("train.csv");
 
 	//Configure the label matrix
 	configureOutputMatricies();
@@ -58,15 +66,29 @@ int main()
 	initWeightsAndBiases();
 
 	//run the neural network with 200 iterations
-	runNetwork(800, 2, true, false);
+	runNetwork(iterations, 2, true, false);
+
+	double trainedTime = totalTime;
 
 	//run a test to see how well it learned
 	double correct = runNetwork(1, 2, false, true);
 
-	std::cout << "The network correctly identified: " << correct << "%!\n";
-	std::cout << "Run Time: " << totalTime << " milliseconds!";
+	std::cout << hiddenSize << " Neurons, 1 Hidden Layer, " << correct << "% Correct\n";
 
-	//Wait for user input so the program doesn't just clos
+	if (batching == false)
+	{
+		std::cout << "No batching, ";
+	}	
+	else
+	{
+		std::cout << "Batches of " << batchSize << ", ";
+	}
+
+	std::cout << "Run Time: " << (double)trainedTime / 1000.0 << " seconds\n";
+
+	std::cout << iterations << " Iterations";
+
+	//Wait for user input so the program doesn't just close
 	getchar();
 
 	return 0;
@@ -94,7 +116,7 @@ void readCSV(const char * file)
 
 	DWORD endTime = timeGetTime();
 
-	std::cout << "file read! Took " << endTime << " milliseconds\n";
+	std::cout << "file read! Took " << (double)(endTime - startTime) / 1000.0 << " seconds!\n";
 }
 
 void configureOutputMatricies()
@@ -120,6 +142,12 @@ void calculateSizes()
 	//The number of inputs is how many column the inputMatrix has (each column is an "image")
 	//Note: This is after we transposed the matrix, so each image is in a row of the CSV file
 	numberOfInputs = inputMatrices.n_cols;
+
+	//cap the number of imputs for testing and performance
+	if (maxInputs > 0 && numberOfInputs > maxInputs)
+	{
+		numberOfInputs = maxInputs;
+	}
 	
 	//The size of each input (image) is the number of rows
 	inputSize = inputMatrices.n_rows;
@@ -187,7 +215,19 @@ double runNetwork(int t, double k, bool l, bool r)
 
     totalTime = 0;
 
+	int currentBatchSize = numberOfInputs;
+
+	if (batching == true)
+	{
+		currentBatchSize = batchSize;
+	}
+
 	DWORD startTime = timeGetTime();
+
+	mat batchOutputDeltas(outputSize, hiddenSize);
+	mat batchHiddenDeltas(hiddenSize, inputSize);
+
+	double nextUpdate = 0;
 
 	//we will train the network t number of times
 	while (timesTrained < t)
@@ -195,12 +235,18 @@ double runNetwork(int t, double k, bool l, bool r)
 		//increment the number of times we have trained
 		++timesTrained;
 
-		//%initialize the cost of this batch
-		//batchCost = zeros(outputSize, 1);
+		//init the current batch calculated
+		int currentBatchCalculated = 0;
+
+		batchOutputDeltas.zeros();
+		batchHiddenDeltas.zeros();
 
 		//for each of the inputs in the batch
 		for (int i = 0; i < numberOfInputs; ++i)
 		{
+			//We have calculated another input from this batch
+			currentBatchCalculated++;
+
 			//get the corresponding input
 			mat inputVec = inputMatrices.col(i);
 
@@ -225,9 +271,6 @@ double runNetwork(int t, double k, bool l, bool r)
 
 			//calculate cost of this input
 			mat cost = calcCost(desiredOutput, finalOutput);
-
-			//add the error from this batch to the current total error matrix
-			//batchCost = batchCost + cost;
 
 			//if we are returning the %correct instead of the cost
 			if (r == true)
@@ -261,17 +304,74 @@ double runNetwork(int t, double k, bool l, bool r)
 			mat hiddenToOutputDelta = deltaLogSig(finalOutput) % error;
 			mat inputToHiddenDelta = deltaLogSig(hiddenOutput) % (hiddentoOutputWeights.t() * hiddenToOutputDelta);
 
+			//adjust the weights of the network
+			mat finalHiddenToOutputDelta = k * hiddenToOutputDelta * hiddenOutput.t();
+			mat finalInputToHiddenDelta = k * inputToHiddenDelta  * inputVec.t();
+
+			if (batching == true)
+			{
+				batchOutputDeltas += finalHiddenToOutputDelta;
+				batchHiddenDeltas += finalInputToHiddenDelta;
+
+				if (currentBatchCalculated != batchSize && i != numberOfInputs)
+					continue;
+
+				//avarage the deltas
+				batchOutputDeltas /= currentBatchCalculated;
+				batchHiddenDeltas /= currentBatchCalculated;
+
+				//these are the deltas we will use
+				finalHiddenToOutputDelta = batchOutputDeltas;
+				finalInputToHiddenDelta = batchHiddenDeltas;
+
+				//reset the batch deltas
+				batchOutputDeltas.zeros();
+				batchHiddenDeltas.zeros();
+
+				//reset cbc
+				currentBatchCalculated = 0;
+			}
 
 			//adjust the weights of the network
-		    hiddentoOutputWeights += k * hiddenToOutputDelta * hiddenOutput.t();
-			inputToHiddenWeights  += k * inputToHiddenDelta  * inputVec.t();
+		    hiddentoOutputWeights += finalHiddenToOutputDelta;
+			inputToHiddenWeights  += finalInputToHiddenDelta;
 
 			//adjust the bais of the nextwork
 			outputBias = outputBias + k * hiddenToOutputDelta;
 			hiddenBias = hiddenBias + k * inputToHiddenDelta;
 
 		}
+
+		if (l == false)
+			continue;
+
+
+
+		double percentTrained = (double)(timesTrained + 1) / (double)(t) * 100;
+
+		if (percentTrained > nextUpdate)
+		{
+			int intUpdate = (int)nextUpdate;
+			
+			if (intUpdate % 10 == 0)
+			{
+				cout << intUpdate;
+			}
+			else
+			{
+				cout << ".";
+			}
+
+			if (intUpdate == 100)
+			{
+				cout << endl;
+			}
+
+			nextUpdate += 2.5;
+		}
 	}
+
+	//Calculate the total time
 	DWORD endTime = timeGetTime();
 	totalTime = endTime - startTime;
 
