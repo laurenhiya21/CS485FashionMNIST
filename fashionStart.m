@@ -11,49 +11,46 @@ global numberOfInputs;
 global trainData;
 global latestPrediction;
 
-    
-    latestPrediction = 0;
+latestPrediction = 0;
 
-    %get the inputs and labels from MNIST
-    trainData = csvread('train.csv',1,1);
+%get the inputs and labels from MNIST
+trainData = csvread('train.csv',1,1);
    
-    csvLabels = trainData(:,1);
+csvLabels = trainData(:,1);
    
-    trainData(:,1) = [];
+trainData(:,1) = [];
     
-    csvInput = trainData;
+csvInput = trainData;
     
-    %transpose the input
-    csvInput = csvInput';
+%transpose the input
+csvInput = csvInput';
     
-    %normalize the input
-    csvInput = csvInput./255;
+%normalize the input
+csvInput = csvInput./255;
     
-    %the matrix represenation of each label
-    t0 = [1;0;0;0;0;0;0;0;0;0];
-    t1 = [0;1;0;0;0;0;0;0;0;0];
-    t2 = [0;0;1;0;0;0;0;0;0;0];
-    t3 = [0;0;0;1;0;0;0;0;0;0];
-    t4 = [0;0;0;0;1;0;0;0;0;0];
-    t5 = [0;0;0;0;0;1;0;0;0;0];
-    t6 = [0;0;0;0;0;0;1;0;0;0];
-    t7 = [0;0;0;0;0;0;0;1;0;0];
-    t8 = [0;0;0;0;0;0;0;0;1;0];
-    t9 = [0;0;0;0;0;0;0;0;0;1];
+%the matrix represenation of each label
+t0 = [1;0;0;0;0;0;0;0;0;0];
+t1 = [0;1;0;0;0;0;0;0;0;0];
+t2 = [0;0;1;0;0;0;0;0;0;0];
+t3 = [0;0;0;1;0;0;0;0;0;0];
+t4 = [0;0;0;0;1;0;0;0;0;0];
+t5 = [0;0;0;0;0;1;0;0;0;0];
+t6 = [0;0;0;0;0;0;1;0;0;0];
+t7 = [0;0;0;0;0;0;0;1;0;0];
+t8 = [0;0;0;0;0;0;0;0;1;0];
+t9 = [0;0;0;0;0;0;0;0;0;1];
 
-    %put them all in a single matrix
-    outputMatricies = [t0 t1 t2 t3 t4 t5 t6 t7 t8 t9];
+%put them all in a single matrix
+outputMatricies = [t0 t1 t2 t3 t4 t5 t6 t7 t8 t9];
     
-    %Transposing outputMatricies
-    outputMatricies = outputMatricies';
+%Transposing outputMatricies
+outputMatricies = outputMatricies';
     
-    %Uncomment this line to verify that csvLabels is working correctly
-    %disp(csvLabels);
+%Uncomment this line to verify that csvLabels is working correctly
+%disp(csvLabels);
  
-    %Uncomment this line to verify that csvInput is working correctly
-    %disp(csvInput) 
-     
-    
+%Uncomment this line to verify that csvInput is working correctly
+%disp(csvInput) 
 
 %parameters neural network
 %----------------------------------
@@ -111,18 +108,16 @@ xlabel("Iteration");
 %A variable that represents total runtime of code
 BeginTime = tic;
 
+%run the neural network with 200 iterations
+runNetwork(400, 2, true, true, false);
+    
+%run a test to see how well it learned
+correct = runNetwork(1, 2, false, false, true);
+    
+title(hiddenSize + " Neuron with MNIST Data " + correct + "% Correct");
 
-    
-    %run the neural network with 200 iterations
-    runNetwork(400, 2, true, true, false);
-    
-    %run a test to see how well it learned
-    correct = runNetwork(1, 2, false, false, true);
-    
-    title(hiddenSize + " Neuron with MNIST Data " + correct + "% Correct");
-
-    %show the output
-    disp("correct: " + correct );
+%show the output
+disp("correct: " + correct );
 
 %Get total runtime in seconds
 EndTime = toc(BeginTime);
@@ -254,14 +249,8 @@ function c = runNetwork(t, k, l, g, r)
             hiddenBias = hiddenBias + k.*inputToHiddenDelta;
         
         %Get Time of current iteration using iteration time
-        
-        
-        
-        
+
         end
-        
-       
-        
         
         %avarage the cost
         avgCost = batchCost / batchSize;
@@ -276,43 +265,32 @@ function c = runNetwork(t, k, l, g, r)
         
         %update the cost
         c = c + cost;
-        
-        
-        
+ 
     end
 
-     
-    
     c = c / t;
     
     if r == true
         c = (numCorrect / (t * batchSize) * 100);
     end 
 
-        currentIteration = toc(iterationTime);
+    currentIteration = toc(iterationTime);
         
-        %Convert from seconds to milliseconds
-        currentIteration = currentIteration * 1000;
+    %Convert from seconds to milliseconds
+    currentIteration = currentIteration * 1000;
         
-%Add it to average time variable
-averageRunTime = averageRunTime + currentIteration;
-        
-    
- 
-    
-%Average the total time by dividing by number of times loop runs
-averageRunTime = averageRunTime / t;
+    %Add it to average time variable
+    averageRunTime = averageRunTime + currentIteration;
 
+    %Average the total time by dividing by number of times loop runs
+    averageRunTime = averageRunTime / t;
 
-
-disp("Average Run Time: ");
-fprintf('%d milliseconds\n',averageRunTime);
+    %disp("Average Run Time: "); 
+    %fprintf('%d milliseconds\n',averageRunTime);
     
 
-disp("Prediction: ");
-disp(latestPrediction);
-
-
+    %disp("Prediction: ");
+    %disp(latestPrediction);
 end
 
 %delta of the log sig function
@@ -328,57 +306,4 @@ end
 % the activations are just the weight * input + bias
 function n = netOutput(w,p,b)
 n = (w * p) + b;
-end
-
-
-
-%A function that returns time in hour:minutes:seconds
-
-%code from http://ufldl.stanford.edu/wiki/index.php/Using_the_MNIST_Dataset
-function images = loadMNISTImages(filename)
-%loadMNISTImages returns a 28x28x[number of MNIST images] matrix containing
-%the raw MNIST images
-
-fp = fopen(filename, 'rb');
-assert(fp ~= -1, ['Could not open ', filename, '']);
-
-magic = fread(fp, 1, 'int32', 0, 'ieee-be');
-assert(magic == 2051, ['Bad magic number in ', filename, '']);
-
-numImages = fread(fp, 1, 'int32', 0, 'ieee-be');
-numRows = fread(fp, 1, 'int32', 0, 'ieee-be');
-numCols = fread(fp, 1, 'int32', 0, 'ieee-be');
-
-images = fread(fp, inf, 'unsigned char');
-images = reshape(images, numCols, numRows, numImages);
-images = permute(images,[2 1 3]);
-
-fclose(fp);
-
-% Reshape to #pixels x #examples
-images = reshape(images, size(images, 1) * size(images, 2), size(images, 3));
-% Convert to double and rescale to [0,1]
-images = double(images) / 255;
-
-end
-
-%code from http://ufldl.stanford.edu/wiki/index.php/Using_the_MNIST_Dataset
-function labels = loadMNISTLabels(filename)
-%loadMNISTLabels returns a [number of MNIST images]x1 matrix containing
-%the labels for the MNIST images
-
-fp = fopen(filename, 'rb');
-assert(fp ~= -1, ['Could not open ', filename, '']);
-
-magic = fread(fp, 1, 'int32', 0, 'ieee-be');
-assert(magic == 2049, ['Bad magic number in ', filename, '']);
-
-numLabels = fread(fp, 1, 'int32', 0, 'ieee-be');
-
-labels = fread(fp, inf, 'unsigned char');
-
-assert(size(labels,1) == numLabels, 'Mismatch in label count');
-
-fclose(fp);
-
 end
