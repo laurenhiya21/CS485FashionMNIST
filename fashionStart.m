@@ -9,8 +9,10 @@ global outputSize;
 %the number of inputs
 global numberOfInputs;
 global trainData;
+global latestPrediction;
 
-
+    
+    latestPrediction = 0;
 
     %get the inputs and labels from MNIST
     trainData = csvread('train.csv',1,1);
@@ -194,6 +196,8 @@ function c = runNetwork(t, k, l, g, r)
             outputActivations = netOutput(hiddentoOutputWeights,hiddenOutput,outputBias);
             finalOutput = logsig(outputActivations);
        
+            latestPrediction = finalOutput;
+            
             %calculate the error of this result
             error = desiredOutput - finalOutput;
     
@@ -299,6 +303,10 @@ disp("Average Run Time: ");
 fprintf('%d milliseconds\n',averageRunTime);
     
 
+disp("Prediction: ");
+disp(latestPrediction);
+
+
 end
 
 %delta of the log sig function
@@ -315,6 +323,8 @@ end
 function n = netOutput(w,p,b)
 n = (w * p) + b;
 end
+
+
 
 %A function that returns time in hour:minutes:seconds
 
