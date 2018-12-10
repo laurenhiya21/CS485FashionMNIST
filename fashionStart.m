@@ -19,9 +19,15 @@ global latestPrediction;
    
     csvLabels = trainData(:,1);
    
-    csvInput = csvread('train.csv',1,2);
+    trainData(:,1) = [];
     
+    csvInput = trainData;
+    
+    %transpose the input
     csvInput = csvInput';
+    
+    %normalize the input
+    csvInput = csvInput./255;
     
     %the matrix represenation of each label
     t0 = [1;0;0;0;0;0;0;0;0;0];
