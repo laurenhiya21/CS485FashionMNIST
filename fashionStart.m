@@ -74,7 +74,10 @@ global batching;
 batching = true;
 
 global maxInputs;
-maxInputs = 10000;
+maxInputs = 0;
+
+global iterations;
+iterations = 400;
 
 %the size of the neural network (autogenerate later, hardcode for now)
 %------------------------
@@ -84,7 +87,7 @@ outputSize = size(outputMatricies,2);
 
 numberOfInputs = size(csvInput,2);
 
-if numberOfInputs > maxInputs
+if maxInputs > 0 && numberOfInputs > maxInputs
     numberOfInputs = maxInputs;
 end
 
@@ -120,7 +123,7 @@ figure;
 hold on; 
 grid on;
 ylabel("Cost");
-xlabel("Iteration");
+xlabel(iterations + " Iterations");
 
 %run the network
 %----------------------------------
@@ -129,18 +132,28 @@ xlabel("Iteration");
 BeginTime = tic;
 
 %run the neural network with 200 iterations
-runNetwork(200, 2, true, true, false);
+runNetwork(iterations, 2, true, true, false);
     
 %run a test to see how well it learned
 correct = runNetwork(1, 2, false, false, true);
-    
-title(hiddenSize + " Neuron with MNIST Data " + correct + "% Correct");
 
 %show the output
 disp("The network correctly identified: " + correct + "%!");
 
 %Get total runtime in seconds
 EndTime = toc(BeginTime);
+
+mainTitle = hiddenSize + " Neurons, 1 Hidden Layer, " + correct + "% Correct";
+
+if batching == false
+    subTitle = "No batching, ";
+else
+    subTitle = "Batches of " + batchSize + ", ";
+end
+
+subTitle = subTitle + "Run Time: " + EndTime + " seconds";
+
+title({mainTitle,subTitle});
 
 %convert to milliseconds
 EndTime = EndTime * 1000;
