@@ -73,6 +73,9 @@ batchSize = 500;
 global batching;
 batching = true;
 
+global maxInputs;
+maxInputs = 10000;
+
 %the size of the neural network (autogenerate later, hardcode for now)
 %------------------------
 %The size of the output layer (0,1 and 2 would be 3 possible outcomes)
@@ -81,7 +84,12 @@ outputSize = size(outputMatricies,2);
 
 numberOfInputs = size(csvInput,2);
 
+if numberOfInputs > maxInputs
+    numberOfInputs = maxInputs;
+end
+
 %The size of the input vector
+global inputSize;
 inputSize = size(csvInput,1);
 
 %intialize the neural network
@@ -166,6 +174,7 @@ function c = runNetwork(t, k, l, g, r)
     global numberOfInputs;
     global outputSize;
     global hiddenSize;
+    global inputSize;
     
     %For batching
     global batching;
@@ -197,8 +206,8 @@ function c = runNetwork(t, k, l, g, r)
         batchCost = zeros(outputSize,1);
         
         %batch deltas for... batching
-        batchOutputDeltas = zeros(outputSize,1);
-        batchHiddenDeltas = zeros(hiddenSize,1);
+        batchOutputDeltas = zeros(outputSize,hiddenSize);
+        batchHiddenDeltas = zeros(hiddenSize,inputSize);
         
         Error = zeros(outputSize,1);
         
@@ -270,9 +279,12 @@ function c = runNetwork(t, k, l, g, r)
             hiddenToOutputDelta = deltaLogSig(finalOutput).*error;
             inputToHiddenDelta = deltaLogSig(hiddenOutput).*(hiddentoOutputWeights.'*hiddenToOutputDelta);
             
+            finalHiddenToOutputDelta = k.*hiddenToOutputDelta*(hiddenOutput.');
+            finalInputToHiddenWeights = k.*inputToHiddenDelta*(inputVec.');
+            
             if batching == true
-                batchOutputDeltas = batchOutputDeltas + hiddenToOutputDelta;
-                batchHiddenDeltas = batchHiddenDeltas + inputToHiddenDelta;
+                batchOutputDeltas = batchOutputDeltas + finalHiddenToOutputDelta;
+                batchHiddenDeltas = batchHiddenDeltas + finalInputToHiddenWeights;
                 
                 if currentBatchCalculated ~= batchSize && i ~= numberOfInputs
                     continue;
@@ -283,20 +295,22 @@ function c = runNetwork(t, k, l, g, r)
                 batchHiddenDeltas = batchHiddenDeltas./currentBatchCalculated;
                
                 %these are the deltas we will use
-                hiddenToOutputDelta = batchOutputDeltas;
-                inputToHiddenDelta = batchHiddenDeltas;
+                finalHiddenToOutputDelta = batchOutputDeltas;
+                finalInputToHiddenWeights = batchHiddenDeltas;
                 
                 %reset the batch deltas
-                batchOutputDeltas = zeros(outputSize,1);
-                batchHiddenDeltas = zeros(hiddenSize,1);
+                batchOutputDeltas = zeros(outputSize,hiddenSize);
+                batchHiddenDeltas = zeros(hiddenSize,inputSize);
 
                 %reset cbc
                 currentBatchCalculated = 0;
             end
             
+            
+            
             %adjust the weights of the network
-            hiddentoOutputWeights = hiddentoOutputWeights + k.*hiddenToOutputDelta*(hiddenOutput.');
-            inputToHiddenWeights = inputToHiddenWeights + k.*inputToHiddenDelta*(inputVec.');
+            hiddentoOutputWeights = hiddentoOutputWeights + finalHiddenToOutputDelta;
+            inputToHiddenWeights = inputToHiddenWeights + finalInputToHiddenWeights;
             
             %adjust the bais of the nextwork
             outputBias = outputBias + k.*hiddenToOutputDelta;
